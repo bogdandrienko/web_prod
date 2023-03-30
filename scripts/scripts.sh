@@ -18,7 +18,7 @@ PostgreSQL
 ######################################################################################################
 
 sudo apt-get update -y
-sudo apt-get install -y curl wget git build-essential gcc make libpq-dev unixodbc-dev zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev libsqlite3-dev libbz2-dev gettext
+sudo apt-get install -y git curl wget build-essential gcc make libpq-dev unixodbc-dev zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev libsqlite3-dev libbz2-dev gettext
 sudo apt-get install -y nginx gunicorn postgresql postgresql-contrib redis
 sudo apt install -y snapd
 sudo snap install --classic certbot gh
@@ -54,11 +54,13 @@ exit
 
 #######################################
 
+git clone https://github.com/bogdandrienko/web_prod
 mkdir web && cd web
 python3 -m venv env
 source env/bin/activate
 pip install -r requirements.txt
 pip install django django-environ django-grappelli gunicorn psycopg2-binary pillow djangorestframework djangorestframework-simplejwt django-cors-headers celery django_redis
+pip freeze > requirements.txt
 
 django-admin startproject django_settings .
 django-admin startapp django_app
@@ -132,7 +134,7 @@ Requires=gunicorn.socket
 After=network.target
 [Service]
 Type=notify
-User=bogdan
+User=ubuntu
 Group=www-data
 RuntimeDirectory=gunicorn
 WorkingDirectory=/home/ubuntu/web
@@ -151,7 +153,6 @@ sudo systemctl enable --now gunicorn.service
 sudo systemctl daemon-reload
 sudo systemctl restart gunicorn
 sudo systemctl status gunicorn.service
-
 
 #################################################
 
@@ -209,13 +210,13 @@ sudo systemctl reload nginx.service
 #################################################################################################
 
 
-sudo mv /etc/nginx/sites-available/web-km-kz-http.conf /etc/nginx/sites-available/web.km.kz-https.conf
-sudo nano /etc/nginx/sites-available/web-km-kz-http.conf
+sudo mv /etc/nginx/sites-available/185.4.180.190.conf /etc/nginx/sites-available/185.4.180.190.https.conf
+sudo nano /etc/nginx/sites-available/185.4.180.190.conf
 <file>
 server {
 listen 80;
 listen [::]:80;
-server_name web.km.kz www.web.km.kz;
+server_name bogdandrienko.site www.bogdandrienko.site;
 root /home/bogdan/web;
 location /.well-known/acme-challenge/ {}
 location / {
@@ -229,15 +230,15 @@ location / {
 
 
 
-sudo certbot certonly --webroot -w /home/bogdan/web -d web.km.kz -m bogdandrienko@gmail.com --agree-tos
+sudo certbot certonly --webroot -w /home/ubuntu/web -d bogdandrienko.site -m bogdandrienko@gmail.com --agree-tos
 sudo openssl dhparam -out /etc/nginx/dhparam.pem 2048
-sudo nano /etc/nginx/sites-available/web-km-kz-https.conf
+sudo nano /etc/nginx/sites-available/185.4.180.190.https.conf
 <file>
 server {
 listen 443 ssl http2;
 listen [::]:443 ssl http2;
-ssl_certificate /etc/letsencrypt/live/web.km.kz/fullchain.pem;
-ssl_certificate_key /etc/letsencrypt/live/web.km.kz/privkey.pem;
+ssl_certificate /etc/letsencrypt/live/bogdandrienko.site/fullchain.pem;
+ssl_certificate_key /etc/letsencrypt/live/bogdandrienko.site/privkey.pem;
 ssl_session_timeout 1d;
 ssl_session_cache shared:MozSSL:10m;
 ssl_dhparam /etc/nginx/dhparam.pem;
@@ -246,28 +247,28 @@ ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDS
 ssl_prefer_server_ciphers off;
 ssl_stapling on;
 ssl_stapling_verify on;
-ssl_trusted_certificate /etc/letsencrypt/live/web.km.kz/chain.pem;
+ssl_trusted_certificate /etc/letsencrypt/live/bogdandrienko.site/chain.pem;
 resolver 1.1.1.1;
-client_max_body_size 30M;
-server_name web.km.kz www.web.km.kz;
-root /home/bogdan/web;
+client_max_body_size 50M;
+server_name bogdandrienko.site www.bogdandrienko.site;
+root /home/ubuntu/web;
 location /.well-known/acme-challenge/ {}
 location /favicon.ico {
-    alias /home/bogdan/web/static/logo.png;
+    alias /home/ubuntu/web/static/logo.png;
     access_log off; log_not_found off;
     expires max;
 }
 location /robots.txt {
-    alias /home/bogdan/web/static/robots.txt;
+    alias /home/ubuntu/web/static/robots.txt;
     access_log off; log_not_found off;
     expires max;
 }
 location /static/ {
-    alias /home/bogdan/web/static/;
+    alias /home/ubuntu/web/static/;
     expires max;
 }
 location /media/ {
-    alias /home/bogdan/web/static/media/;
+    alias /home/ubuntu/web/static/media/;
     expires max;
 }
 location / {
@@ -280,7 +281,7 @@ location / {
 }
 }
 </file>
-sudo ln -s /etc/nginx/sites-available/web-km-kz-https.conf /etc/nginx/sites-enabled/web-km-kz-https.conf
+sudo ln -s /etc/nginx/sites-available/185.4.180.190.https.conf /etc/nginx/sites-enabled/185.4.180.190.https.conf
 sudo service nginx start
 sudo systemctl status nginx.service
 sudo ufw allow 'Nginx Full'
