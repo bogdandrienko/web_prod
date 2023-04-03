@@ -44,6 +44,10 @@ GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public to pgs_usr;
 \q
 exit
 
+sudo systemctl status postgresql
+sudo systemctl start postgresql
+sudo systemctl restart postgresql
+
 ##########################################
 
 sudo systemctl status redis
@@ -154,7 +158,8 @@ sudo systemctl daemon-reload
 sudo systemctl restart gunicorn
 sudo systemctl status gunicorn.service
 
-#################################################
+######################################################################################################################################################
+# TEMP пока не купили домен
 
 sudo usermod -aG ubuntu www-data
 sudo nano /etc/nginx/sites-available/185.4.180.190.conf
@@ -200,18 +205,90 @@ location / {
 }
 </file>
 
-
 sudo ln -s /etc/nginx/sites-available/185.4.180.190.conf /etc/nginx/sites-enabled/185.4.180.190.conf
 sudo service nginx start
 sudo systemctl status nginx.service
 sudo ufw allow 'Nginx Full'
 sudo systemctl reload nginx.service
 
+# TEMP пока не купили домен
+######################################################################################################################################################
+
+
+
+
+
+######################################################################################################################################################
+# SSL
+
+sudo rm /etc/nginx/sites-available/185.4.180.190.conf
+sudo rm /etc/nginx/sites-enabled/185.4.180.190.conf
+sudo rm /etc/nginx/sites-available/bogdandrienko.site-http.conf
+sudo rm /etc/nginx/sites-available/bogdandrienko.site-https.conf
+sudo rm /etc/nginx/sites-enabled/bogdandrienko.site-http.conf
+sudo rm /etc/nginx/sites-enabled/bogdandrienko.site-https.conf
+
+sudo nano /etc/nginx/sites-available/bogdandrienko.site-http.conf
+<file>
+server {
+listen 80;
+listen [::]:80;
+server_name bogdandrienko.site www.bogdandrienko.site;
+root /home/ubuntu/web;
+
+location /.well-known/acme-challenge/ {}
+
+location /favicon.ico {
+    alias /home/ubuntu/web/static/logo.png;
+    access_log off; log_not_found off;
+    expires max;
+}
+
+location /robots.txt {
+    alias /home/ubuntu/web/static/robots.txt;
+    access_log off; log_not_found off;
+    expires max;
+}
+
+location /static/ {
+    alias /home/ubuntu/web/static/;
+    expires max;
+}
+
+location /media/ {
+    alias /home/ubuntu/web/static/media/;
+    expires max;
+}
+
+location / {
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Host $http_host;
+    proxy_redirect off;
+    proxy_buffering off;
+    proxy_pass http://unix:/run/gunicorn.sock;
+}
+}
+</file>
+
+sudo ln -s /etc/nginx/sites-available/bogdandrienko.site-http.conf /etc/nginx/sites-enabled/bogdandrienko.site-http.conf
+sudo service nginx start
+sudo ufw allow 'Nginx Full'
+sudo systemctl reload nginx.service
+sudo systemctl status nginx.service
+
+
+#####################################################
+# TODO САЙТ НА 80 порту ДОЛЖЕН РАБОТАТЬ!
+
+
 #################################################################################################
 
 
-sudo mv /etc/nginx/sites-available/185.4.180.190.conf /etc/nginx/sites-available/185.4.180.190.https.conf
-sudo nano /etc/nginx/sites-available/185.4.180.190.conf
+sudo certbot certonly --webroot -w /home/ubuntu/web -d bogdandrienko.site -m bogdandrienko@gmail.com --agree-tos
+sudo openssl dhparam -out /etc/nginx/dhparam.pem 2048
+
+sudo nano /etc/nginx/sites-available/bogdandrienko.site-http.conf
 <file>
 server {
 listen 80;
@@ -225,14 +302,14 @@ location / {
 }
 </file>
 
+sudo rm /etc/nginx/sites-enabled/bogdandrienko.site-http.conf
+sudo ln -s /etc/nginx/sites-available/bogdandrienko.site-http.conf /etc/nginx/sites-enabled/bogdandrienko.site-http.conf
+sudo service nginx start
+sudo ufw allow 'Nginx Full'
+sudo systemctl reload nginx.service
+sudo systemctl status nginx.service
 
-
-
-
-
-sudo certbot certonly --webroot -w /home/ubuntu/web -d bogdandrienko.site -m bogdandrienko@gmail.com --agree-tos
-sudo openssl dhparam -out /etc/nginx/dhparam.pem 2048
-sudo nano /etc/nginx/sites-available/185.4.180.190.https.conf
+sudo nano /etc/nginx/sites-available/bogdandrienko.site.https.conf
 <file>
 server {
 listen 443 ssl http2;
@@ -281,11 +358,41 @@ location / {
 }
 }
 </file>
-sudo ln -s /etc/nginx/sites-available/185.4.180.190.https.conf /etc/nginx/sites-enabled/185.4.180.190.https.conf
+sudo ln -s /etc/nginx/sites-available/bogdandrienko.site.https.conf /etc/nginx/sites-enabled/bogdandrienko.site.https.conf
 sudo service nginx start
-sudo systemctl status nginx.service
 sudo ufw allow 'Nginx Full'
 sudo systemctl reload nginx.service
+sudo systemctl status nginx.service
 
+#################################################################################################
+# таймер для CERTBOT (должен обновлять примерно раз в 90 дней автоматически)
 
+certbot renew --force-renewal --post-hook "systemctl reload nginx.service"
+
+sudo nano /etc/systemd/system/certbot-renewal.service
+<file>
+[Unit]
+Description=Certbot Renewal
+
+[Service]
+ExecStart=/snap/bin/certbot renew --force-renewal --post-hook "systemctl reload nginx.service"
+</file>
+
+sudo nano /etc/systemd/system/certbot-renewal.timer
+<file>
+[Unit]
+Description=Timer for Certbot Renewal
+
+[Timer]
+OnBootSec=300
+OnUnitActiveSec=90d
+
+[Install]
+WantedBy=multi-user.target
+</file>
+
+sudo systemctl stop certbot-renewal.timer
+sudo systemctl start certbot-renewal.timer
+sudo systemctl enable certbot-renewal.timer
+systemctl status certbot-renewal.timer
 

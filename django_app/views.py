@@ -1,13 +1,24 @@
 from django.contrib.auth.models import User
 from django.core.cache import caches
 from django.views.generic import TemplateView
+from openpyxl.workbook import Workbook
+from openpyxl.worksheet.worksheet import Worksheet
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.request import Request
 from rest_framework.response import Response
 from django_app import serializers as django_app_serializers, utils as django_app_utils
+import openpyxl
 
 RedisCache = caches["default"]
+
+
+def func1():
+    workbook: Workbook = openpyxl.Workbook()
+    worksheet: Worksheet = workbook["Лист1"]
+
+    dataa1: int = worksheet.cell(1, 1).value  # 'Sholpan'
+    dataa1.split()
 
 
 class HomeView(TemplateView):
